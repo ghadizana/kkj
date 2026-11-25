@@ -10,7 +10,7 @@ import {
   X,
 } from 'lucide-react';
 import {
-  formatDurationLabel,
+  formatDurationFull,
   formatIndoDateLabel,
   formatInputDots,
   formatRupiah,
@@ -18,7 +18,7 @@ import {
 } from '../data/mockData';
 import {
   PaymentMethod,
-  Product,
+  ProductWithStock,
   RiderAccount,
   ShiftState,
   Transaction,
@@ -27,7 +27,7 @@ import { EspressoBackdrop } from './EspressoBackdrop';
 
 interface HomePOSViewProps {
   rider: RiderAccount;
-  products: Product[];
+  products: ProductWithStock[];
   cart: Record<string, number>;
   nextOrderId: string;
   shift: ShiftState;
@@ -233,7 +233,7 @@ export const HomePOSView: React.FC<HomePOSViewProps> = ({
           <div className="font-mono text-xs text-[#6E6659] tabular-nums">
             <span className="text-[#968C7B]">Durasi</span>{' '}
             <span className="text-[#171614] font-medium">
-              {shift.hasStartedToday ? formatDurationLabel(elapsedMinutes) : '0 menit'}
+              {shift.hasStartedToday ? formatDurationFull(elapsedMinutes) : '0 menit'}
             </span>
           </div>
 

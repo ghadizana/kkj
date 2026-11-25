@@ -379,12 +379,14 @@ export const LoginView: React.FC<LoginViewProps> = ({
               </div>
 
               <p className="mt-4 text-[11px] text-[#FAF8F3]/60 leading-relaxed">
-                Catatan: Akun di atas adalah data dummy untuk keperluan demo
-                &amp; pengujian. Saat ini login hanya mengarahkan ke{' '}
+                Catatan: Akun di atas adalah data demo terintegrasi. Gunakan{' '}
                 <strong className="text-[#FAF8F3]/85 font-medium">
-                  Rider Workspace
+                  Akun owner
                 </strong>{' '}
-                karena fitur dashboard Owner belum dibuat.
+                untuk mengelola produk, alokasi stok, pengeluaran, dan laporan,
+                atau akun{' '}
+                <strong className="text-[#FAF8F3]/85 font-medium">Rider</strong>{' '}
+                untuk operasional POS gerobak.
               </p>
             </div>
           </div>

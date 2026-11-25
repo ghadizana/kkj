@@ -42,7 +42,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const otherAccount = DEMO_ACCOUNTS.find((a) => a.id !== rider.id);
+  const otherAccounts = DEMO_ACCOUNTS.filter((a) => a.id !== rider.id);
 
   return (
     <header className="sticky top-0 z-30 bg-[#FAF8F3]/95 backdrop-blur-sm border-b border-[#E5DFD2]">
@@ -122,11 +122,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </div>
                 </div>
 
-                {otherAccount && (
+                {otherAccounts.map((acc) => (
                   <button
+                    key={acc.id}
                     type="button"
                     onClick={() => {
-                      onSwitchAccount(otherAccount);
+                      onSwitchAccount(acc);
                       setDropdownOpen(false);
                     }}
                     className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-medium text-[#171614] hover:bg-[#EFECE4] transition-colors"
@@ -134,14 +135,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <ArrowLeftRight className="w-3.5 h-3.5 text-[#7B7263] shrink-0" />
                     <div className="min-w-0">
                       <div className="truncate">
-                        Ganti ke {otherAccount.firstName}
+                        {acc.roleType === 'owner'
+                          ? 'Buka Dashboard Owner'
+                          : `Ganti ke ${acc.firstName}`}
                       </div>
                       <div className="text-[10px] text-[#7B7263]">
-                        {otherAccount.role}
+                        {acc.role}
                       </div>
                     </div>
                   </button>
-                )}
+                ))}
 
                 <button
                   type="button"

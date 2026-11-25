@@ -1,17 +1,34 @@
 import React, { useMemo, useState } from 'react';
-import { Calendar, ChevronDown } from 'lucide-react';
+import { Calendar, ChevronDown, Plus, Send, X } from 'lucide-react';
 import {
   formatDecimalId,
   formatIndoDateLabel,
   getTodayWibIsoDate,
 } from '../data/mockData';
-import { IngredientStock, RiderAccount, StockMovement } from '../types';
+import {
+  IngredientId,
+  IngredientStock,
+  ProductWithStock,
+  RiderAccount,
+  StockMovement,
+  StockRequest,
+} from '../types';
 
 interface StockViewProps {
   rider: RiderAccount;
   ingredients: IngredientStock[];
+  products: ProductWithStock[];
   movements: StockMovement[];
+  requests: StockRequest[];
   lastSyncedLabel: string | null;
+  onSubmitStockRequest: (payload: {
+    itemType: 'ingredient' | 'cups';
+    ingredientId?: IngredientId;
+    productId?: string;
+    itemName: string;
+    unit: 'kg' | 'liter' | 'cup';
+    qty: number;
+  }) => void;
 }
 
 type MovementFilter = 'Semua pergerakan' | 'Penjualan' | 'Alokasi awal';
@@ -19,14 +36,25 @@ type MovementFilter = 'Semua pergerakan' | 'Penjualan' | 'Alokasi awal';
 export const StockView: React.FC<StockViewProps> = ({
   rider,
   ingredients,
+  products,
   movements,
+  requests,
   lastSyncedLabel,
+  onSubmitStockRequest,
 }) => {
   const [selectedDateIso, setSelectedDateIso] = useState<string>(() =>
     getTodayWibIsoDate(),
   );
   const [movementFilter, setMovementFilter] =
     useState<MovementFilter>('Semua pergerakan');
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [reqType, setReqType] = useState<'ingredient' | 'cups'>('ingredient');
+  const [reqIngredientId, setReqIngredientId] =
+    useState<IngredientId>('coffee');
+  const [reqProductId, setReqProductId] = useState<string>(
+    products[0]?.id ?? 'kopi-susu-gula-aren',
+  );
+  const [reqQty, setReqQty] = useState<string>('2');
 
   const lowStockCount = useMemo(
     () =>
@@ -43,6 +71,11 @@ export const StockView: React.FC<StockViewProps> = ({
     });
   }, [movements, selectedDateIso, movementFilter]);
 
+  const myRequests = useMemo(
+    () => requests.filter((r) => r.riderId === rider.id),
+    [requests, rider.id],
+  );
+
   const selectedDateLabel = selectedDateIso
     ? formatIndoDateLabel(selectedDateIso)
     : 'Semua tanggal';
@@ -56,6 +89,36 @@ export const StockView: React.FC<StockViewProps> = ({
     return formatIndoDateLabel(nextIso);
   }, [selectedDateIso]);
 
+  const handleRequestSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const numericQty = parseFloat(reqQty);
+    if (!numericQty || numericQty <= 0) return;
+
+    if (reqType === 'ingredient') {
+      const ing = ingredients.find((i) => i.id === reqIngredientId);
+      if (!ing) return;
+      onSubmitStockRequest({
+        itemType: 'ingredient',
+        ingredientId: ing.id,
+        itemName: ing.name,
+        unit: ing.unit,
+        qty: numericQty,
+      });
+    } else {
+      const prod = products.find((p) => p.id === reqProductId);
+      if (!prod) return;
+      onSubmitStockRequest({
+        itemType: 'cups',
+        productId: prod.id,
+        itemName: `Cup ${prod.name}`,
+        unit: 'cup',
+        qty: Math.round(numericQty),
+      });
+    }
+    setShowRequestModal(false);
+    setReqQty('2');
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -64,9 +127,14 @@ export const StockView: React.FC<StockViewProps> = ({
           <div className="font-mono text-[11px] tracking-[0.16em] text-[#8E8371] uppercase">
             {rider.cartCode} &nbsp;/&nbsp; PERSEDIAAN
           </div>
-          <span className="rounded-full border border-[#E2DCCE] bg-[#EFECE4] px-3.5 py-1.5 text-xs font-medium text-[#6E6659] whitespace-nowrap">
-            Menunggu alokasi owner
-          </span>
+          <button
+            type="button"
+            onClick={() => setShowRequestModal(true)}
+            className="rounded-full bg-[#1D1B18] hover:bg-[#2E2A25] text-[#FAF8F3] px-4 py-2 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Ajukan permintaan stok</span>
+          </button>
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -75,7 +143,7 @@ export const StockView: React.FC<StockViewProps> = ({
               Stok gerobak
             </h1>
             <p className="text-sm text-[#6E6659] mt-1">
-              Pantau persediaan dan siapkan stok untuk besok.
+              Pantau persediaan dan ajukan permintaan stok ke dashboard Owner.
             </p>
           </div>
 
@@ -123,7 +191,9 @@ export const StockView: React.FC<StockViewProps> = ({
           >
             {lowStockCount}
           </div>
-          <div className="text-xs text-[#6E6659] mt-2">Stok kosong / menipis</div>
+          <div className="text-xs text-[#6E6659] mt-2">
+            Stok kosong / menipis
+          </div>
         </div>
 
         <div className="rounded-2xl bg-[#EFECE4] border border-[#E4DEC9] p-5 sm:p-6">
@@ -135,6 +205,61 @@ export const StockView: React.FC<StockViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Rider Submitted Stock Requests */}
+      {myRequests.length > 0 && (
+        <section className="rounded-3xl border border-[#E4DEC9] bg-[#F3EFE6] p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h2 className="text-base font-semibold text-[#171614]">
+              Status permintaan stok ke Owner
+            </h2>
+            <span className="text-xs text-[#7B7263] tabular-nums">
+              {myRequests.length} pengajuan
+            </span>
+          </div>
+          <div className="space-y-2">
+            {myRequests.map((req) => (
+              <div
+                key={req.id}
+                className="rounded-2xl bg-white/80 border border-[#E5DFD0] px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-xs"
+              >
+                <div>
+                  <span className="font-mono text-[#8E8371] mr-2">
+                    {req.id}
+                  </span>
+                  <span className="font-semibold text-[#171614]">
+                    {req.itemName}
+                  </span>
+                  <span className="text-[#6E6659] ml-2 tabular-nums">
+                    ({formatDecimalId(req.qty)} {req.unit})
+                  </span>
+                  {req.rejectionReason && (
+                    <div className="text-[11px] text-[#9B1C1C] mt-0.5">
+                      Alasan: {req.rejectionReason}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[#7B7263] tabular-nums">
+                    {req.requestedAtLabel}
+                  </span>
+                  <span
+                    className={`rounded-full px-3 py-1 font-medium ${
+                      req.status === 'Disetujui'
+                        ? 'bg-[#E6EFE8] text-[#2E6B47]'
+                        : req.status === 'Ditolak'
+                          ? 'bg-red-100 text-[#9B1C1C]'
+                          : 'bg-[#F5E8D6] text-[#9C5D24]'
+                    }`}
+                  >
+                    {req.status}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Current Stock Table */}
       <section className="rounded-3xl border border-[#E4DEC9] bg-white/75 overflow-hidden">
@@ -203,7 +328,7 @@ export const StockView: React.FC<StockViewProps> = ({
               Rekomendasi stok besok
             </h2>
             <p className="text-xs text-[#FAF8F3]/60 mt-1">
-              Menunggu data pemakaian dan alokasi stok dari dashboard Owner.
+              Estimasi kebutuhan gerobak berdasarkan target harian dari Owner.
             </p>
           </div>
           <span className="self-start rounded-full bg-[#2C2924] border border-[#FAF8F3]/10 px-3.5 py-1.5 text-xs font-medium text-[#FAF8F3]/85 whitespace-nowrap tabular-nums">
@@ -336,6 +461,149 @@ export const StockView: React.FC<StockViewProps> = ({
           </table>
         </div>
       </section>
+
+      {/* Request Stock Modal */}
+      {showRequestModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-xs p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <form
+            onSubmit={handleRequestSubmit}
+            className="w-full max-w-md rounded-3xl bg-[#FAF8F3] border border-[#DFD9C9] p-6 text-[#171614] shadow-2xl space-y-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="font-mono text-[10px] tracking-[0.16em] text-[#8E8371] uppercase">
+                  {rider.cartCode} / PERMINTAAN STOK
+                </div>
+                <h3 className="text-xl font-semibold mt-1">
+                  Ajukan permintaan stok
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRequestModal(false)}
+                className="rounded-full p-1.5 text-[#6E6659] hover:bg-[#EFECE4]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-[#5C5549] mb-1.5">
+                Jenis permintaan
+              </label>
+              <div className="grid grid-cols-2 gap-2 p-1 rounded-full bg-[#EFECE4]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReqType('ingredient');
+                    setReqQty('2');
+                  }}
+                  className={`rounded-full py-2 text-xs font-semibold transition-colors ${
+                    reqType === 'ingredient'
+                      ? 'bg-[#1D1B18] text-[#FAF8F3]'
+                      : 'text-[#6E6659]'
+                  }`}
+                >
+                  Bahan baku
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReqType('cups');
+                    setReqQty('20');
+                  }}
+                  className={`rounded-full py-2 text-xs font-semibold transition-colors ${
+                    reqType === 'cups'
+                      ? 'bg-[#1D1B18] text-[#FAF8F3]'
+                      : 'text-[#6E6659]'
+                  }`}
+                >
+                  Cup produk siap jual
+                </button>
+              </div>
+            </div>
+
+            {reqType === 'ingredient' ? (
+              <div>
+                <label className="block text-xs font-medium text-[#5C5549] mb-1.5">
+                  Pilih bahan baku
+                </label>
+                <select
+                  value={reqIngredientId}
+                  onChange={(e) =>
+                    setReqIngredientId(e.target.value as IngredientId)
+                  }
+                  className="w-full rounded-xl border border-[#DFD9C9] bg-white px-3.5 py-2.5 text-sm text-[#171614] focus:outline-none focus:border-[#9E8C6C]"
+                >
+                  {ingredients.map((ing) => (
+                    <option key={ing.id} value={ing.id}>
+                      {ing.name} ({ing.unit})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-medium text-[#5C5549] mb-1.5">
+                  Pilih produk menu
+                </label>
+                <select
+                  value={reqProductId}
+                  onChange={(e) => setReqProductId(e.target.value)}
+                  className="w-full rounded-xl border border-[#DFD9C9] bg-white px-3.5 py-2.5 text-sm text-[#171614] focus:outline-none focus:border-[#9E8C6C]"
+                >
+                  {products.map((prod) => (
+                    <option key={prod.id} value={prod.id}>
+                      {prod.name} (Stok saat ini: {prod.stock} cup)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-medium text-[#5C5549] mb-1.5">
+                Jumlah diminta (
+                {reqType === 'cups'
+                  ? 'cup'
+                  : ingredients.find((i) => i.id === reqIngredientId)?.unit ??
+                    'unit'}
+                )
+              </label>
+              <input
+                type="number"
+                step={reqType === 'cups' ? '1' : '0.1'}
+                min="0.1"
+                required
+                value={reqQty}
+                onChange={(e) => setReqQty(e.target.value)}
+                className="w-full rounded-xl border border-[#DFD9C9] bg-white px-3.5 py-2.5 text-sm text-[#171614] focus:outline-none focus:border-[#9E8C6C] tabular-nums"
+              />
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowRequestModal(false)}
+                className="rounded-full border border-[#D8D1C1] px-4 py-2 text-xs font-semibold text-[#5C5549] hover:bg-[#EFECE4]"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                className="rounded-full bg-[#1D1B18] hover:bg-[#2F2B25] text-[#FAF8F3] px-5 py-2 text-xs font-semibold inline-flex items-center gap-1.5"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Kirim ke Owner</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 };
